@@ -66,7 +66,6 @@ jobs:
           sudo dpkg -i mkbootimg_34.0.5-12_all.deb
           wget http://ftp.debian.org/debian/pool/main/d/debootstrap/debootstrap_1.0.141_all.deb
           sudo dpkg -i debootstrap_1.0.141_all.deb
-      # 安装编译依赖项 [5,6](@ref)
 
     # 2-1. 获取本项目源码
     - name: Checkout Workflow Repo
@@ -95,7 +94,7 @@ jobs:
             ;;
           custom)
             make ARCH=$ARCH CC=gcc-14 HOSTCC=gcc-14 msm8916_defconfig
-            scripts/kconfig/merge_config.sh -m -Q .config  $GITHUB_WORKSPACE/workspace/.config # 使用仓库中的自定义配置
+            scripts/kconfig/merge_config.sh -m -Q .config  $GITHUB_WORKSPACE/workspace/.config
             make ARCH=$ARCH CC=gcc-14 HOSTCC=gcc-14 olddefconfig
             ;;
         esac
@@ -129,7 +128,6 @@ jobs:
           KBUILD_DEBARCH=arm64 \
           -j$(nproc) \
           bindeb-pkg
-        # DEB打包方法 [6](@ref)
         
         # 重命名输出文件
         mkdir -p $GITHUB_WORKSPACE/artifacts/
@@ -297,7 +295,8 @@ jobs:
           --kernel $GITHUB_WORKSPACE/artifacts/kernel-dtb \
           -o $GITHUB_WORKSPACE/boot.img
         echo "status=success" >>$GITHUB_OUTPUT
-    # 8. 打包roofs.img
+
+    # 8. 打包rootfs.img
     - name: Package Rootfs
       id: rootfs
       if: steps.root.outputs.status == 'success' && !cancelled()
@@ -318,7 +317,7 @@ jobs:
         img2simg root.img $GITHUB_WORKSPACE/rootfs.img
         echo "status=success" >>$GITHUB_OUTPUT
 
-    # 9. 上传制品
+    # 9. 上传制品到Artifacts
     - name: Upload Artifacts
       if: steps.kernel.outputs.status == 'success' && !cancelled()
       uses: actions/upload-artifact@v4
@@ -330,6 +329,7 @@ jobs:
           linux-src/arch/arm64/boot/dts/qcom/msm8916-thwc-ufi001c.dtb
           linux-src/defconfig
 
+    # 10. 生成发布标签
     - name: Generate release tag
       id: tag
       if: steps.rootfs.outputs.status == 'success' && steps.bootimg.outputs.status == 'success' && env.UPLOAD_RELEASE == 'true' && !cancelled()
@@ -337,6 +337,7 @@ jobs:
         echo "release_tag=openstick-${{ inputs.debian_version }}-kernel-${{ steps.configure.outputs.kernel_ver }}-${{ inputs.rootfs_type }}" >> $GITHUB_OUTPUT
         echo "status=success" >> $GITHUB_OUTPUT
 
+    # 11. 上传固件到GitHub Releases
     - name: Upload firmware to release
       uses: softprops/action-gh-release@master
       if: steps.tag.outputs.status == 'success' && !cancelled()
@@ -345,15 +346,20 @@ jobs:
       with:
         tag_name: ${{ steps.tag.outputs.release_tag }}
         files: | 
-          rootfs.img
-          boot.img
+          ${{ github.workspace }}/boot.img
+          ${{ github.workspace }}/rootfs.img
+        draft: false
+        prerelease: false
+        generate_release_notes: true
 
+    # 12. 清理工作流运行记录
     - name: Delete workflow runs
       uses: Mattraks/delete-workflow-runs@main
       with:
         retain_days: 1
         keep_minimum_runs: 3
 
+    # 13. 清理旧版本发布
     - name: Remove old Releases
       uses: dev-drprasad/delete-older-releases@master
       if: env.UPLOAD_RELEASE == 'true' && !cancelled()
@@ -362,4 +368,3 @@ jobs:
         delete_tags: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
