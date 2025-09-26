@@ -133,7 +133,7 @@ jobs:
         
         # 重命名输出文件
         mkdir -p $GITHUB_WORKSPACE/artifacts/
-        cat arch/arm64/boot/Image.gz arch/arm64/boot/dts/qcom/msm8916-thwc-ufi001c.dtb > $GITHUB_WORKSPACE/artifacts/kernel-dtb
+        cat arch/arm64/boot/Image.gz arch/arm64/boot/dts/qcom/msm8916-yiming-uz801v3.dtb > $GITHUB_WORKSPACE/artifacts/kernel-dtb
         mv ../linux-*.deb ../artifacts/
         echo "status=success" >>$GITHUB_OUTPUT
 
